@@ -377,7 +377,7 @@ public class HUDText : MonoBehaviour
 
         if (EnableLIDAR)
         {
-            string lidar_measurement = LIDAR.CurrentMeasurement;
+            string lidar_measurement = LIDAR.CurrentMeasurement.ToString();
             if (GNSS)
             {
                 if (SkidSteer && VehicleControllers.Length != 0)
