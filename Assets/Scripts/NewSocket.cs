@@ -4,30 +4,74 @@ using SocketIOClient.Newtonsoft.Json;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
 using UnityEngine.Profiling;
+using UnityEngine.UI;
 using static SocketIOUnity;
 
 public class NewSocket : MonoBehaviour
 {
     public SocketIOUnity newSocket;
 
-    public VehicleController[] VehicleControllers; // `VehicleController` references
-    public WheelEncoder[] LeftWheelEncoders; // `WheelEncoder` references for left wheel
-    public WheelEncoder[] RightWheelEncoders; // `WheelEncoder` references for right wheel
-    public GPS[] IndoorPositioningSystems; // `IPS` references
-    public IMU[] InertialMeasurementUnits; // `IMU` references
-    public LIDAR[] LIDARUnits; // `LIDAR` references
+    public InputField IPInputField;
+    public InputField PortInputField;
+
+    public Text ConnectionLabel; // GUI button label
+
+    public VehicleController[] VehicleControllers; // VehicleController references
+    public WheelEncoder[] LeftWheelEncoders; // WheelEncoder references for left wheel
+    public WheelEncoder[] RightWheelEncoders; // WheelEncoder references for right wheel
+    public GPS[] IndoorPositioningSystems; // IPS references
+    public IMU[] InertialMeasurementUnits; // IMU references
+    public LIDAR[] LIDARUnits; // LIDAR references
     public Camera[] FrontCameras; // Vehicle front camera references
 
+    private string lastDebugMessage = "";
+    private string newConnectionLabelText = "";
+
     // Start is called before the first frame update
-    void Start()
+    private void Start()
     {
+        newConnectionLabelText = ConnectionLabel.text;
+        TryConnect();
+    }
+
+    private async void OnApplicationQuit()
+    {
+        if (newSocket != null && newSocket.Connected)
+        {
+            await newSocket.DisconnectAsync();
+        }
+        newSocket?.Dispose();
+    }
+
+    public void OnConnectButton()
+    {
+        if (newSocket == null || !newSocket.Connected)
+        {
+            TryConnect();
+        }
+        else
+        {
+            TryDisconnect();
+        }
+    }
+
+    public void TryConnect()
+    {
+        if (newSocket != null)
+        {
+            Debug.Log("TryConnect(): Already initialized!");
+            TryDisconnect();
+        }
+
         // Initialize SocketIO
-        var URI = new Uri("ws://127.0.0.1:4567");
-        newSocket = new SocketIOUnity(URI, new SocketIOOptions {
+        var URI = new Uri("ws://" + IPInputField.text + ":" + PortInputField.text);
+        newSocket = new SocketIOUnity(URI, new SocketIOOptions
+        {
             EIO = SocketIOClient.EngineIO.V3
         });
         newSocket.JsonSerializer = new NewtonsoftJsonSerializer();
@@ -35,28 +79,53 @@ public class NewSocket : MonoBehaviour
         // Normal SocketIO events
         newSocket.OnConnected += (sender, e) =>
         {
-            Debug.Log("newSocket.OnConnected");
+            lastDebugMessage = "Connect: " + e;
+            Debug.Log(lastDebugMessage);
+
+            newConnectionLabelText = "Disconnect";
         };
         newSocket.OnPing += (sender, e) =>
         {
-            Debug.Log("Ping");
+            lastDebugMessage = "Ping: " + e;
+            Debug.Log(lastDebugMessage);
         };
         newSocket.OnPong += (sender, e) =>
         {
-            Debug.Log("Pong: " + e.TotalMilliseconds);
+            lastDebugMessage = "Pong: " + e.TotalMilliseconds;
+            Debug.Log(lastDebugMessage);
         };
         newSocket.OnDisconnected += (sender, e) =>
         {
-            Debug.Log("Disconnect: " + e);
+            lastDebugMessage = "Disconnect: " + e;
+            Debug.Log(lastDebugMessage);
+
+            newConnectionLabelText = "Connect";
         };
         newSocket.OnReconnectAttempt += (sender, e) =>
         {
-            Debug.Log($"{DateTime.Now} Reconnecting: attempt = {e}");
+            lastDebugMessage = $"{DateTime.Now} Reconnecting: attempt = {e}";
+            Debug.Log(lastDebugMessage);
         };
-
-        // Try to connect
-        Debug.Log("Connecting...");
-        newSocket.Connect();
+        newSocket.OnReconnected += (sender, e) =>
+        {
+            lastDebugMessage = $"{DateTime.Now} Reconnected: {e}";
+            Debug.Log(lastDebugMessage);
+        };
+        newSocket.OnReconnectError += (sender, e) =>
+        {
+            lastDebugMessage = $"{DateTime.Now} Reconnect error: {e}";
+            Debug.Log(lastDebugMessage);
+        };
+        newSocket.OnReconnectFailed += (sender, e) =>
+        {
+            lastDebugMessage = $"{DateTime.Now} Reconnect failed: {e}";
+            Debug.Log(lastDebugMessage);
+        };
+        newSocket.OnError += (sender, e) =>
+        {
+            lastDebugMessage = "Error: " + e;
+            Debug.Log(lastDebugMessage);
+        };
 
         // Socket Event Handlers
         newSocket.unityThreadScope = UnityThreadScope.LateUpdate;
@@ -78,24 +147,39 @@ public class NewSocket : MonoBehaviour
                 }
             }
         });
+
+        Debug.Log("Connecting...");
+        newSocket.Connect();
     }
 
-    async void OnApplicationQuit()
+    public void TryDisconnect()
     {
-        if (newSocket != null && newSocket.Connected)
+        Debug.Log("Disconnecting...");
+
+        // Stop race conditions
+        SocketIOUnity tempSocket = newSocket;
+        newSocket = null;
+
+        if (tempSocket != null && tempSocket.Connected)
         {
-            await newSocket.DisconnectAsync();
+            tempSocket.Disconnect();
         }
-        newSocket?.Dispose();
+        
+        tempSocket?.Dispose(); // syntactic sugar
     }
 
-    // this should be async to not block
+    // this func should be async to not block
     private bool sendingPacket = false;
+
     private StringBuilder LIDARRangeArray = new StringBuilder(2048);
     private StringBuilder LIDARIntensityArray = new StringBuilder(2048);
-    async void FixedUpdate()
+
+    private async void FixedUpdate()
     {
-        if (sendingPacket || !newSocket.Connected)
+        // Can only update text in main thread
+        ConnectionLabel.text = newConnectionLabelText;
+
+        if (sendingPacket || newSocket == null || !newSocket.Connected)
             return; // Skip until last packet was sent
 
         sendingPacket = true;
@@ -103,7 +187,7 @@ public class NewSocket : MonoBehaviour
         try
         {
             Profiler.BeginSample("SocketIO_PacketProcessing");
-            Dictionary<string, string> packetData = new Dictionary<string, string>(); // Create new `data` dictionary
+            Dictionary<string, string> packetData = new Dictionary<string, string>(); // Create new data dictionary
                                                                                       // Read data from vehicles
             if (VehicleControllers.Length != 0)
             {
@@ -124,12 +208,12 @@ public class NewSocket : MonoBehaviour
                     packetData[vehicleID + "Linear Acceleration"] = InertialMeasurementUnits[i].CurrentLinearAcceleration[0].ToString("F3") + " " + InertialMeasurementUnits[i].CurrentLinearAcceleration[1].ToString("F3") + " " + InertialMeasurementUnits[i].CurrentLinearAcceleration[2].ToString("F3"); // Get linear acceleration of the vehicle
                     packetData[vehicleID + "LIDAR Scan Rate"] = LIDARUnits[i].CurrentScanRate.ToString("F3"); // Get LIDAR scan rate
 
-                    Profiler.BeginSample("SocketIO_LidarProcessing");                
+                    Profiler.BeginSample("SocketIO_LidarProcessing");
                     var currentRangeArray = LIDARUnits[i].CurrentRangeArray;
                     var currentIntensityArray = LIDARUnits[i].CurrentIntensityArray;
                     int currentLIDARLength = currentRangeArray.Length;
 
-                    if (currentRangeArray[currentLIDARLength - 1] != null)
+                    if (currentRangeArray[currentLIDARLength - 1] != null) //fixme
                     {
                         LIDARRangeArray.AppendJoin(" ", currentRangeArray);
                         LIDARIntensityArray.AppendJoin(" ", currentIntensityArray);
@@ -148,7 +232,18 @@ public class NewSocket : MonoBehaviour
             }
 
             Profiler.EndSample();
+
             await newSocket.EmitStringAsJSONAsync("Bridge", new JSONObject(packetData).ToString()); // Write data to server
+        }
+        catch (System.ObjectDisposedException)
+        {
+            // This is now expected during shutdown. Silence it.
+            Debug.Log("Send aborted: Socket was disposed.");
+        }
+        catch (System.Exception ex)
+        {
+            // Catch-all for WebSocket 'Aborted' states
+            Debug.LogWarning($"Socket send failed: {ex.Message}");
         }
         finally
         {

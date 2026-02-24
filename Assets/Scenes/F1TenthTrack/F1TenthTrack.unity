@@ -1257,6 +1257,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24166d07b04c89f46af349ae646df62c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  IPInputField: {fileID: 1164785503}
+  PortInputField: {fileID: 1955274980}
+  ConnectionLabel: {fileID: 1842921365}
   VehicleControllers:
   - {fileID: 1473428756}
   LeftWheelEncoders:
@@ -1628,6 +1631,10 @@ PrefabInstance:
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
+    - target: {fileID: 563342182922139499, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+      propertyPath: m_Text
+      value: 4567
+      objectReference: {fileID: 0}
     - target: {fileID: 665980955704531659, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -1920,6 +1927,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4222221327605368775, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+      propertyPath: m_Text
+      value: 127.0.0.1
+      objectReference: {fileID: 0}
     - target: {fileID: 4320343418455040876, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
@@ -2087,14 +2098,18 @@ PrefabInstance:
     - target: {fileID: 8394120153243641781, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
-      objectReference: {fileID: 1979403136}
+      objectReference: {fileID: 1335519793}
     - target: {fileID: 8394120153243641781, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: 
+      value: OnConnectButton
       objectReference: {fileID: 0}
     - target: {fileID: 8394120153243641781, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
-      value: SocketConnection, Assembly-CSharp
+      value: NewSocket, Assembly-CSharp
+      objectReference: {fileID: 0}
+    - target: {fileID: 8448427473201393107, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8463084186901607108, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_StaticEditorFlags
@@ -2115,6 +2130,10 @@ PrefabInstance:
     - target: {fileID: 9038638019229140730, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 9072215205671203018, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2443,17 +2462,6 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 7982393976358568326, guid: 00a591192e7c2f6428c4826371daaf29, type: 3}
   m_PrefabInstance: {fileID: 481383804}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &1979403136 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 223201315604191165, guid: 00a591192e7c2f6428c4826371daaf29, type: 3}
-  m_PrefabInstance: {fileID: 481383804}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1979403134}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ad1d5434cd98def4aa1dd78a0cc43558, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1001 &2108291273
 PrefabInstance:
   m_ObjectHideFlags: 0
