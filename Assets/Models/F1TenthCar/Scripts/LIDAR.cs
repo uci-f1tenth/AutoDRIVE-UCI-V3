@@ -5,6 +5,9 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Profiling;
+using Unity.VisualScripting;
+
 
 public class LIDAR : MonoBehaviour
 {
@@ -16,9 +19,13 @@ public class LIDAR : MonoBehaviour
 	(Hz) while the 'Resolution' property determines the scanning resolution (deg).
 	*/
 
+	// Public data
+
 	public bool AnimateScanner = true; // Animate scanning head of LIDAR
-	public bool ShowRaycasts = false; // Visualize raycasts
 	public bool ShowLaserScan = false; // Visualize laser scan
+	public bool ShowLidarGizmos = false; // Show LIDAR gizmos in Scene view
+	public bool LogRanges = false; // Log range array to Unity Console
+	public bool LogIntensities = false; // Log intensity array to Unity Console
 	public GameObject Scanner; // Reference `Scanner` gameobject
 	public GameObject Head; // Reference `Head` gameobject
 
@@ -28,27 +35,40 @@ public class LIDAR : MonoBehaviour
 	public float MinimumAngularRange = 0; // LIDAR minimum angular range (deg)
 	public float MaximumAngularRange = 359; // LIDAR maximum angular range (deg)
 	public float Resolution = 1; // Angular resolution (deg)
+	public int RayCastBatchSize = 32; // Number of raycasts to process in a single batch
 	public float Intensity = 47.0f; // Intensity of the laser ray
+
+
+	public GameObject HUD; // Use HUD to enable laser scan visualization
+	public Material LaserScanMaterial; // Material for laser scan visualization
+	public float LaserScanSize = 0.01f; // Size for laser scan visualization
+	public Color LaserScanColor; // Color for laser scan visualization
+
+	// Private data
 
 	private int MeasurementsPerScan; // Measurements per scan
 	private float[] RangeArray; // Array storing range values of a scan
 	private float[] IntensityArray; // Array storing range values of a scan
 	private float timer = 0f; // Timer to synchronize laser scan updates
 
-	public float CurrentMeasurement;
+	private Vector3[] laserRayDirections;
+	private NativeArray<RaycastCommand> raycastCommands;
+	private NativeArray<RaycastHit> raycastResults;
+	private JobHandle raycastJobHandle;
+    private StringBuilder rangeStringBuilder = new StringBuilder(2000);
+	private int layer_mask = 1 << 0; // Mask the `Default` layer to allow raycasting only against it
+	private QueryParameters raycastQueryParameters;
+	private Mesh LaserScanMesh; // Mesh for laser scan visualization
+	private static readonly int visualizationLayerID = 10; // `Sensor Visualization` layer
 
+	private int[] meshIndices;
+	private Vector3[] meshPoints;
+
+	// Public getters
 	public float CurrentScanRate { get { return ScanRate; } }
 	public float[] CurrentRangeArray { get { return RangeArray; } }
 	public float[] CurrentIntensityArray { get { return IntensityArray; } }
 
-	private int layer_mask = 1 << 0; // Mask the `Default` layer to allow raycasting only against it
-
-	private Mesh LaserScanMesh; // Mesh for laser scan visualization
-	private static readonly int visualizationLayerID = 10; // `Sensor Visualization` layer
-	public GameObject HUD; // Use HUD to enable laser scan visualization
-	public Material LaserScanMaterial; // Material for laser scan visualization
-	public float LaserScanSize = 0.01f; // Size for laser scan visualization
-	public Color LaserScanColor; // Color for laser scan visualization
 
 	private void Start()
 	{
@@ -56,45 +76,60 @@ public class LIDAR : MonoBehaviour
 																								   // Debug.Log(MeasurementsPerScan);
 		RangeArray = new float[MeasurementsPerScan]; // Array storing range values of a scan
 		IntensityArray = new float[MeasurementsPerScan]; // Array storing range values of a scan
+		
+		laserRayDirections = new Vector3[MeasurementsPerScan];
 
+		// Raycast jobs
+		raycastCommands = new NativeArray<RaycastCommand>(
+			MeasurementsPerScan,
+			Allocator.Persistent
+		);
+
+		raycastResults = new NativeArray<RaycastHit>(
+			MeasurementsPerScan,
+			Allocator.Persistent
+		);
+
+		raycastQueryParameters = new QueryParameters
+		{
+			layerMask = layer_mask,
+			hitBackfaces = false,
+			hitMultipleFaces = false,
+			hitTriggers = QueryTriggerInteraction.Ignore
+		};
+
+		
+		// Old
 		if (ShowLaserScan)
 		{
 			LaserScanMesh = new Mesh();
 			LaserScanMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
 		}
 
-        // 1. Initialize arrays ONCE
-        laserRayDirections = new Vector3[MeasurementsPerScan];
-        rawRangeArray = new float[MeasurementsPerScan];
 
-        // 2. Precompute directions (as you did before)
-        float angleIncrement = Resolution * Mathf.Deg2Rad;
-        float initialAngle = (transform.eulerAngles.y - MinimumAngularRange) * Mathf.Deg2Rad;
+		// visualization stuff
+		meshIndices = new int[MeasurementsPerScan];
+		meshPoints = new Vector3[MeasurementsPerScan];
 
-        for (int i = 0; i < MeasurementsPerScan; i++)
-        {
-            float angle = initialAngle + (i * angleIncrement) * (MinimumAngularRange <= 0 ? -1 : 1);
-            laserRayDirections[i] = new Vector3(Mathf.Sin(angle), 0, Mathf.Cos(angle));
-        }
+		float angleIncrement = Resolution * Mathf.Deg2Rad;
+		float halfRange = (MaximumAngularRange - MinimumAngularRange) / 2f * Mathf.Deg2Rad; // = 135°
+
+		for (int i = 0; i < MeasurementsPerScan; i++)
+		{
+			float localAngle = halfRange - i * angleIncrement;
+
+			laserRayDirections[i] = new Vector3(
+				Mathf.Sin(localAngle),
+				0f,
+				Mathf.Cos(localAngle)
+			);
+		}
     }
 
 	void FixedUpdate()
 	{
-		// LASER SCAN
-		if (AnimateScanner)
-		{
-			Scanner.transform.Rotate(Vector3.up, Time.deltaTime * 360 * ScanRate); // Spin the scanner
-			Vector3 LaserVector = Scanner.transform.TransformDirection(Vector3.forward) * MaximumLinearRange; // Vector pointing in the forward direction (i.e. local Z-axis)
-			Ray LaserRay = new Ray(Scanner.transform.position, LaserVector); // Initialize a ray w.r.t. the vector at the origin of the `Scanner` transform
-																			 //Debug.DrawRay(Scanner.transform.position, LaserVector, Color.red); // Visually draw the raycast in scene for debugging purposes
-			RaycastHit MeasurementRayHit; // Initialize a raycast hit object
-			if (Physics.Raycast(LaserRay, out MeasurementRayHit, layer_mask)) CurrentMeasurement = (MeasurementRayHit.distance + MinimumLinearRange); // Update the `CurrentMeasurement` value to the `hit distance` if the ray is colliding
-			else CurrentMeasurement = float.PositiveInfinity; // Update the `CurrentMeasurement` value to `inf`, otherwise
-											 // Debug.Log(CurrentMeasurement); // Log the `CurrentMeasurement` to Unity Console
-		}
-		else {
-			CurrentMeasurement = RangeArray[(int)(MeasurementsPerScan / 2)];
-		}
+		// Animate
+		if (AnimateScanner) AnimateLidar();
 
         // In FixedUpdate, this value is always constant (e.g., 0.02)
         timer += Time.fixedDeltaTime;
@@ -105,126 +140,149 @@ public class LIDAR : MonoBehaviour
             timer -= 1f / ScanRate;
         }
     }
-
-    private Vector3[] laserRayDirections;
-    private float[] rawRangeArray; // Store as floats first!
-    private RaycastHit[] sharedHitBuffer = new RaycastHit[1]; // Pre-allocated
-    private StringBuilder rangeStringBuilder = new StringBuilder(2000);
-    void LaserScan()
+	
+	void AnimateLidar()
 	{
-		float angleIncrement = Resolution * Mathf.Deg2Rad; // Convert resolution to radians
-		float initialAngle = (Head.transform.eulerAngles.y - MinimumAngularRange) * Mathf.Deg2Rad; // Initial angle
-
-		// Precompute directions and store in an array
-		Vector3[] laserRayDirections = new Vector3[MeasurementsPerScan];
-		for (int i = 0; i < MeasurementsPerScan; i++)
-		{
-			float angle = initialAngle + (i * angleIncrement) * (MinimumAngularRange <= 0 ? -1 : 1);
-			laserRayDirections[i] = new Vector3(Mathf.Sin(angle), 0, Mathf.Cos(angle)) * MaximumLinearRange;
-		}
-
-        // Perform raycasts
-        for (int i = 0; i < MeasurementsPerScan; i++)
-        {
-            // 3. Use NonAlloc - returns 1 if it hits something, 0 if not
-            // We only need the first hit for LIDAR
-            int hitCount = Physics.RaycastNonAlloc(
-                transform.position,
-                laserRayDirections[i],
-                sharedHitBuffer,
-                MaximumLinearRange,
-                layer_mask
-            );
-
-            if (hitCount > 0)
-            {
-                float d = sharedHitBuffer[0].distance;
-                RangeArray[i] = (d > MinimumLinearRange) ? d : float.PositiveInfinity;
-            }
-            else
-            {
-                RangeArray[i] = float.PositiveInfinity;
-            }
-        }
-
-        // 4. Convert to string only when sending to Python
-		/*
-        rangeStringBuilder.Clear();
-        rangeStringBuilder.AppendJoin(" ", rawRangeArray);
-        packetData[cachedLidarKey] = rangeStringBuilder.ToString();
-		*/
-
-		/* garbo
-		RaycastHit[] hits = new RaycastHit[MeasurementsPerScan];
-		for (int i = 0; i < MeasurementsPerScan; i++)
-		{
-			if (Physics.Raycast(Head.transform.position, laserRayDirections[i], out hits[i], MaximumLinearRange, layer_mask))
-			{
-				float hitDistance = hits[i].distance;
-				RangeArray[i] = (hitDistance > MinimumLinearRange) ? hitDistance.ToString() : "inf"; // Store range result
-			}
-			else
-			{
-				RangeArray[i] = "inf"; // No hit
-			}
-
-			IntensityArray[i] = Intensity.ToString(); // Update intensity
-
-			// Draw raycasts (if enabled) -- Only rendered in editor mode
-			if (ShowRaycasts)
-			{
-				float range = Mathf.Min(hits[i].distance, MaximumLinearRange);
-				Vector3 debugRayDirection = laserRayDirections[i] * (range / MaximumLinearRange);
-				Color debugColor = (i == 0) ? Color.green : (i == (int)(MeasurementsPerScan / 2)) ? Color.blue : Color.red;
-				Debug.DrawRay(Head.transform.position, debugRayDirection, debugColor, 1 / ScanRate);
-			}
-		}
-		*/
-
-		// Visualize laser scan (if enabled) -- Rendered in editor and standalone mode
-		if (ShowLaserScan && HUD.activeSelf)
-		{
-			int[] indices = new int[sharedHitBuffer.Length]; // Reset indices
-			Vector3[] points = new Vector3[sharedHitBuffer.Length]; // Reset points
-
-			// Update indices and points based on raycast hits
-			int idx = 0;
-			for (int h = 0; h < sharedHitBuffer.Length; h++)
-			{
-				if (sharedHitBuffer[h].point != Vector3.zero)
-				{
-					indices[idx] = idx; // Ensure sequential indices
-					points[idx] = sharedHitBuffer[h].point; // Append valid hit points
-					idx++; // Increment counter only when a valid point is found
-				}
-			}
-
-			LaserScanMesh.Clear(); // Clear the previous mesh data
-			LaserScanMesh.vertices = points; // Set new vertices
-			LaserScanMesh.SetIndices(indices, MeshTopology.Points, 0); // Set indices using `Points` topology
-			LaserScanMaterial.SetFloat("_PointSize", LaserScanSize); // Set point size for material shader
-			LaserScanMaterial.SetColor("_PointColor", LaserScanColor); // Set point color for material shader
-
-			Graphics.DrawMesh(LaserScanMesh, Vector3.zero, Quaternion.identity, LaserScanMaterial, visualizationLayerID);
-		}
-
-		// LOG LASER SCAN
-		/*
-		// Range Array
-		string RangeArrayString = "Range Array: "; // Initialize `RangeArrayString`
-		foreach(var item in RangeArray)
-		{
-				RangeArrayString += item + " "; // Concatenate the `RangeArrayString` with all the elements in `RangeArray`
-		}
-		Debug.Log(RangeArrayString); // Log the `RangeArrayString` to Unity Console
-
-		// Intensity Array
-		string IntensityArrayString = "Intensity Array: "; // Initialize `RangeArrayString`
-		foreach(var item in IntensityArray)
-		{
-				IntensityArrayString += item + " "; // Concatenate the `RangeArrayString` with all the elements in `RangeArray`
-		}
-		Debug.Log(IntensityArrayString); // Log the `RangeArrayString` to Unity Console
-		*/
+		Scanner.transform.Rotate(Vector3.up, Time.deltaTime * 360 * ScanRate); // Spin the scanner
 	}
+
+	void LaserScan()
+	{
+		Profiler.BeginSample("LIDAR.LaserScan");
+
+		Vector3 origin = transform.position;
+
+		// Prepare commands
+		for (int i = 0; i < MeasurementsPerScan; i++)
+		{
+			Vector3 direction = Head.transform.rotation * laserRayDirections[i];
+
+			raycastCommands[i] = new RaycastCommand(
+				origin,
+				direction,
+				raycastQueryParameters,
+				MaximumLinearRange
+			);
+		}
+
+		// Schedule batch
+		raycastJobHandle = RaycastCommand.ScheduleBatch(
+			raycastCommands,
+			raycastResults,
+			RayCastBatchSize,
+			1
+		);
+
+		// Wait for completion
+		raycastJobHandle.Complete();
+
+		// Read results
+		for (int i = 0; i < MeasurementsPerScan; i++)
+		{
+			float d = raycastResults[i].distance;
+
+			if (d > 0f && d > MinimumLinearRange)
+				RangeArray[i] = d;
+			else
+				RangeArray[i] = float.PositiveInfinity;
+		}
+
+		if (ShowLaserScan && HUD.activeSelf)
+			VisualizeLidarScan();
+
+		if (LogRanges)
+			LogLidarRanges();
+
+		if (LogIntensities)
+			LogLidarIntensities();
+
+		Profiler.EndSample();
+	}
+
+	void VisualizeLidarScan()
+	{
+		// Old code
+		// // Update indices and points based on raycast hits
+		// int idx = 0;
+		// for (int h = 0; h < sharedHitBuffer.Length; h++)
+		// {
+		// 	if (sharedHitBuffer[h].point != Vector3.zero)
+		// 	{
+		// 		meshIndices[idx] = idx; // Ensure sequential indices
+		// 		meshPoints[idx] = sharedHitBuffer[h].point; // Append valid hit points
+		// 		idx++; // Increment counter only when a valid point is found
+		// 	}
+		// }
+
+		// LaserScanMesh.Clear(); // Clear the previous mesh data
+		// LaserScanMesh.vertices = meshPoints; // Set new vertices
+		// LaserScanMesh.SetIndices(meshIndices, MeshTopology.Points, 0); // Set indices using `Points` topology
+		// LaserScanMaterial.SetFloat("_PointSize", LaserScanSize); // Set point size for material shader
+		// LaserScanMaterial.SetColor("_PointColor", LaserScanColor); // Set point color for material shader
+
+		// Graphics.DrawMesh(LaserScanMesh, Vector3.zero, Quaternion.identity, LaserScanMaterial, visualizationLayerID);
+	}
+
+
+	void LogLidarRanges()
+	{
+		// Range Array
+		rangeStringBuilder.Clear();
+		rangeStringBuilder.Append("Range Array: ");
+
+		for (int i = 0; i < RangeArray.Length; i++)
+		{
+			rangeStringBuilder.Append(RangeArray[i]);
+			rangeStringBuilder.Append(' ');
+		}
+
+		Debug.Log(rangeStringBuilder.ToString());
+	}
+
+	void LogLidarIntensities()
+	{
+		// Intensity Array
+		StringBuilder intensityStringBuilder = new StringBuilder(2000);
+		intensityStringBuilder.Append("Intensity Array: ");
+
+		for (int i = 0; i < IntensityArray.Length; i++)
+		{
+			intensityStringBuilder.Append(IntensityArray[i]);
+			intensityStringBuilder.Append(' ');
+		}
+
+		Debug.Log(intensityStringBuilder.ToString());
+	}
+
+	private void OnDestroy()
+	{
+		if (raycastCommands.IsCreated)
+			raycastCommands.Dispose();
+
+		if (raycastResults.IsCreated)
+			raycastResults.Dispose();
+	}
+	
+#if UNITY_EDITOR
+	private void OnDrawGizmos()
+	{
+		if (!ShowLidarGizmos || laserRayDirections == null) return;
+
+		Vector3 origin = transform.position;
+		Gizmos.color = Color.red;
+
+		for (int i = 0; i < MeasurementsPerScan; i++)
+		{
+			Vector3 direction = Head.transform.rotation * laserRayDirections[i];
+
+			float distance = (RangeArray != null &&
+							i < RangeArray.Length &&
+							!float.IsInfinity(RangeArray[i]))
+							? RangeArray[i]
+							: MaximumLinearRange;
+
+			Gizmos.DrawRay(origin, direction * distance);
+		}
+	}
+#endif
 }

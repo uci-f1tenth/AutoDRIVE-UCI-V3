@@ -759,6 +759,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1034170208025841463, guid: f99a554744b0e5546a69e14486f8d2fa, type: 3}
   m_PrefabInstance: {fileID: 236464111}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &868445481 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 163663312169745, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+  m_PrefabInstance: {fileID: 1783846195}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &896694294 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 8bd786b8e80d1ef4189093ab32a71d64, type: 3}
@@ -1847,6 +1852,10 @@ PrefabInstance:
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
+    - target: {fileID: 3130025730383163336, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+      propertyPath: m_Text
+      value: 4567
+      objectReference: {fileID: 0}
     - target: {fileID: 3204271323286459679, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
@@ -2070,6 +2079,10 @@ PrefabInstance:
     - target: {fileID: 7814131689757055835, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
+      objectReference: {fileID: 0}
+    - target: {fileID: 7928159545490292216, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
+      propertyPath: m_Text
+      value: 127.0.0.1
       objectReference: {fileID: 0}
     - target: {fileID: 7986765740947077760, guid: 445f1281d3fcfe344a0d7dce302d59e5, type: 3}
       propertyPath: m_StaticEditorFlags
@@ -2425,6 +2438,30 @@ PrefabInstance:
       propertyPath: Checkpoints.Array.data[20]
       value: 
       objectReference: {fileID: 695189150}
+    - target: {fileID: 3892510216531436006, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: HUD
+      value: 
+      objectReference: {fileID: 868445481}
+    - target: {fileID: 3892510216531436006, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: ScanRate
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 3892510216531436006, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: LogRanges
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3892510216531436006, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: Resolution
+      value: 0.25
+      objectReference: {fileID: 0}
+    - target: {fileID: 3892510216531436006, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: ShowLidarGizmos
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3892510216531436006, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: RayCastBatchSize
+      value: 32
+      objectReference: {fileID: 0}
     - target: {fileID: 3930026636389954950, guid: accf1c5d454039f4883429f758939e68, type: 3}
       propertyPath: m_Type
       value: 0
@@ -2433,6 +2470,26 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: af12ed26dd6b71043900da87784c45ab, type: 3}
+    - target: {fileID: 5712158535603114614, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5712158535603114614, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5712158535603114614, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5712158535603114614, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5712158535603114614, guid: accf1c5d454039f4883429f758939e68, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8433794841164450283, guid: accf1c5d454039f4883429f758939e68, type: 3}
       propertyPath: m_Name
       value: F1TenthCarSimplified

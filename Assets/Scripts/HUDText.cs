@@ -377,7 +377,6 @@ public class HUDText : MonoBehaviour
 
         if (EnableLIDAR)
         {
-            string lidar_measurement = LIDAR.CurrentMeasurement.ToString();
             if (GNSS)
             {
                 if (SkidSteer && VehicleControllers.Length != 0)
@@ -399,9 +398,7 @@ public class HUDText : MonoBehaviour
 
                     "IMU Data:\t" + orientation + " rad\n" +
                     "\t\t\t\t\t\t" + angular_velocity + " rad/s\n" +
-                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2\n\n" +
-
-                    "LIDAR Measurement:\t" + lidar_measurement + " m";
+                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2";
                 }
                 else if (!SkidSteer && VehicleControllers.Length != 0)
                 {
@@ -422,9 +419,7 @@ public class HUDText : MonoBehaviour
 
                     "IMU Data:\t" + orientation + " rad\n" +
                     "\t\t\t\t\t\t" + angular_velocity + " rad/s\n" +
-                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2\n\n" +
-
-                    "LIDAR Measurement:\t" + lidar_measurement + " m";
+                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2";
                 }
                 else if (AutomobileControllers.Length != 0)
                 {
@@ -445,9 +440,7 @@ public class HUDText : MonoBehaviour
 
                     "IMU Data:\t" + orientation + " rad\n" +
                     "\t\t\t\t\t\t" + angular_velocity + " rad/s\n" +
-                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2\n\n" +
-
-                    "LIDAR Measurement:\t" + lidar_measurement + " m";
+                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2";
                 }
             }
             else{
@@ -470,9 +463,7 @@ public class HUDText : MonoBehaviour
 
                     "IMU Data:\t" + orientation + " rad\n" +
                     "\t\t\t\t\t\t" + angular_velocity + " rad/s\n" +
-                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2\n\n" +
-
-                    "LIDAR Measurement:\t" + lidar_measurement + " m";
+                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2";
                 }
                 else
                 {
@@ -493,9 +484,7 @@ public class HUDText : MonoBehaviour
 
                     "IMU Data:\t" + orientation + " rad\n" +
                     "\t\t\t\t\t\t" + angular_velocity + " rad/s\n" +
-                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2\n\n" +
-
-                    "LIDAR Measurement:\t" + lidar_measurement + " m";
+                    "\t\t\t\t\t\t" + linear_acceleration + " m/s^2";
                 }
             }
         }
